@@ -1,0 +1,36 @@
+{
+  "name": "pg-backup",
+  "version": "0.1.0",
+  "description": "Back up and restore PostgreSQL to local files and S3-compatible storage, with retention and checksums",
+  "bin": {
+    "pg-backup": "pg-backup.sh"
+  },
+  "files": [
+    "pg-backup.sh"
+  ],
+  "scripts": {
+    "test": "bash test/run.sh"
+  },
+  "keywords": [
+    "postgres",
+    "postgresql",
+    "backup",
+    "pg_dump",
+    "s3",
+    "r2",
+    "cron",
+    "cli"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ym-scripts/pg-backup.git"
+  },
+  "homepage": "https://github.com/ym-scripts/pg-backup#readme",
+  "bugs": "https://github.com/ym-scripts/pg-backup/issues",
+  "author": {
+    "name": "Aghogho Meyoron",
+    "email": "youngmayor.dev@gmail.com",
+    "url": "https://youngmayor.mlabs.ng"
+  },
+  "license": "MIT"
+}

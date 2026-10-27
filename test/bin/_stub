@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# Generic fake for pg_dump, pg_restore, psql, mysqldump, mysql, aws and curl.
+# Logs "<tool> <args> | <env>" to $STUB_LOG; fails when FAIL_<TOOL>=1.
+tool=$(basename "$0")
+echo "$tool $* | user=${PGUSER:-} pass=${PGPASSWORD:-} host=${PGHOST:-} port=${PGPORT:-} db=${PGDATABASE:-} ssl=${PGSSLMODE:-}" >> "$STUB_LOG"
+case "${1:-}" in --defaults-extra-file=*) echo "cnf: $(tr '\n' ' ' < "${1#*=}")" >> "$STUB_LOG" ;; esac
+var="FAIL_$(echo "$tool" | tr 'a-z-' 'A-Z_')"
+if [ "${!var:-}" = 1 ]; then echo "$tool: simulated failure" >&2; exit 1; fi
+case "$tool" in
+    pg_dump)
+        out=""; while [ $# -gt 0 ]; do [ "$1" = -f ] && out="$2"; shift; done
+        if [ -n "$out" ]; then echo "PGDMP fake" > "$out"; else echo "-- fake sql"; fi ;;
+    mysqldump|mariadb-dump) printf -- '-- fake sql\n-- Dump completed on 2026-10-27\n' ;;
+    psql|mysql|mariadb) cat >/dev/null ;;
+    aws)
+        while [ "${1:-}" != s3 ]; do shift; done; shift
+        sub="$1"; shift
+        args=(); for a in "$@"; do case "$a" in --*) ;; *) args+=("$a") ;; esac; done
+        loc() { echo "$FAKE_S3/${1#s3://}"; }
+        case "$sub" in
+            cp) src="${args[0]}" dst="${args[1]}"
+                case "$src" in s3://*) src=$(loc "$src") ;; esac
+                case "$dst" in s3://*) dst=$(loc "$dst"); mkdir -p "$(dirname "$dst")" ;; esac
+                [ -e "$src" ] || exit 1; cp "$src" "$dst" ;;
+            ls) p=$(loc "${args[0]}"); d=$(dirname "$p"); b=$(basename "$p")
+                for f in "$d/$b"*; do [ -e "$f" ] && echo "2026-10-27 00:00:00 10 $(basename "$f")"; done ;;
+            rm) rm -f -- "$(loc "${args[0]}")" ;;
+        esac ;;
+esac
+exit 0

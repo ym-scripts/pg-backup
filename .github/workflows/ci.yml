@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]   # macOS covers bash 3.2
+    steps:
+      - uses: actions/checkout@v4
+      - name: ShellCheck
+        if: runner.os == 'Linux'
+        run: shellcheck -S warning pg-backup.sh test/run.sh test/bin/_stub
+      - run: bash test/run.sh
+
+  e2e:
+    needs: test
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env: { POSTGRES_PASSWORD: pw, POSTGRES_DB: shop }
+        ports: ["5432:5432"]
+        options: --health-cmd pg_isready --health-interval 5s --health-retries 10
+    env:
+      DATABASE_URL: postgres://postgres:pw@localhost:5432/shop
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PostgreSQL 17 client tools
+        run: |
+          sudo apt-get install -y postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y postgresql-client-17
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+      - name: Back up, break, restore, verify
+        run: |
+          psql "$DATABASE_URL" -c "create table t as select g as id from generate_series(1, 1000) g"
+          for fmt in custom plain; do
+            file=$(./pg-backup.sh --format $fmt --dir ./backups --keep 0)
+            psql "$DATABASE_URL" -c "drop table t"
+            ./pg-backup.sh restore "$file" --yes
+            test "$(psql "$DATABASE_URL" -Atc 'select count(*) from t')" = 1000
+          done
+          ./pg-backup.sh list --dir ./backups
